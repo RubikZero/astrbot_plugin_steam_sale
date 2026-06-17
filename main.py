@@ -65,16 +65,17 @@ class SteamSalePlugin(Star):
         region = self.config.get("region", "cn")
         itad_key = self.config.get("itad_api_key", "").strip()
 
-        url = self._steam_api_base()
-        logger.info(
-            f"[SteamSale] Fetching: {url}?appids={','.join(ids)}&cc={region}"
+        url = (
+            self._steam_api_base()
+            + "?appids="
+            + ",".join(ids)
+            + "&cc="
+            + region
         )
+        logger.info(f"[SteamSale] Fetching: {url}")
         async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
-            resp = await c.get(
-                url,
-                params={"appids": ",".join(ids), "cc": region},
-            )
-            body_preview = resp.text[:200] if resp.text else ""
+            resp = await c.get(url)
+            body_preview = resp.text[:200]
             logger.info(
                 f"[SteamSale] Response: {resp.status_code}"
                 f" body_preview={body_preview}"
@@ -346,18 +347,18 @@ class SteamSalePlugin(Star):
         else:
             region = self.config.get("region", "cn")
             try:
-                url = self._steam_api_base()
+                url = (
+                    self._steam_api_base()
+                    + "?appids="
+                    + ",".join(ids)
+                    + "&cc="
+                    + region
+                )
                 async with httpx.AsyncClient(
                     timeout=self._get_timeout()
                 ) as c:
-                    logger.info(
-                        f"[SteamSale] Query URL: {url}"
-                        f"?appids={','.join(ids)}&cc={region}"
-                    )
-                    resp = await c.get(
-                        url,
-                        params={"appids": ",".join(ids), "cc": region},
-                    )
+                    logger.info(f"[SteamSale] Query URL: {url}")
+                    resp = await c.get(url)
                     body_preview = resp.text[:200]
                     logger.info(
                         f"[SteamSale] Query response: {resp.status_code}"
