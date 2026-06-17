@@ -41,6 +41,55 @@ class SteamSalePlugin(Star):
     def _get_timeout(self):
         return max(10, self.config.get("request_timeout", 120))
 
+    async def _fetch_steam_data(self, ids, region):
+        base = self._steam_api_base()
+
+        async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
+            url = f"{base}?appids={','.join(ids)}&cc={region}"
+            logger.info(f"[SteamSale] Fetching: {url}")
+            resp = await c.get(url)
+            body_preview = resp.text[:200]
+            logger.info(
+                f"[SteamSale] Response: {resp.status_code}"
+                f" {body_preview}"
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                missing = [
+                    a for a in ids
+                    if a not in data or not data[a].get("success")
+                ]
+                if not missing:
+                    return data
+                logger.warning(
+                    f"[SteamSale] Batch missing {len(missing)} games,"
+                    f" fetching individually..."
+                )
+            else:
+                logger.warning(
+                    f"[SteamSale] Batch failed ({resp.status_code}),"
+                    f" falling back to individual requests..."
+                )
+
+            async def fetch_one(appid):
+                u = f"{base}?appids={appid}&cc={region}"
+                r = await c.get(u)
+                if r.status_code == 200:
+                    return r.json().get(appid)
+                return None
+
+            tasks = [fetch_one(a) for a in ids]
+            results = await asyncio.gather(*tasks)
+
+            merged = {}
+            for appid, result in zip(ids, results):
+                if result:
+                    merged[appid] = result
+                else:
+                    merged[appid] = {"success": False}
+            return merged
+
     async def initialize(self):
         self.running = True
         self.task = asyncio.create_task(self._poll_loop())
@@ -65,53 +114,37 @@ class SteamSalePlugin(Star):
         region = self.config.get("region", "cn")
         itad_key = self.config.get("itad_api_key", "").strip()
 
-        url = (
-            self._steam_api_base()
-            + "?appids="
-            + ",".join(ids)
-            + "&cc="
-            + region
-        )
-        logger.info(f"[SteamSale] Fetching: {url}")
-        async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
-            resp = await c.get(url)
-            body_preview = resp.text[:200]
-            logger.info(
-                f"[SteamSale] Response: {resp.status_code}"
-                f" body_preview={body_preview}"
-            )
-            if resp.status_code != 200:
-                logger.warning(
-                    f"[SteamSale] Steam API returned {resp.status_code}:"
-                    f" {body_preview}"
-                )
-                return
-            steam_data = resp.json()
-            self._cached_data = steam_data
-            self._cached_at = time.time()
+        steam_data = await self._fetch_steam_data(ids, region)
+        if not steam_data:
+            return
+        self._cached_data = steam_data
+        self._cached_at = time.time()
 
-            itad_lowest_map = {}
-            if itad_key:
-                try:
+        itad_lowest_map = {}
+        if itad_key:
+            try:
+                async with httpx.AsyncClient(
+                    timeout=self._get_timeout()
+                ) as c:
                     itad_lowest_map = await self._fetch_itad_lowest(
                         c, ids, itad_key, region.upper()
                     )
-                except Exception as e:
-                    logger.error(
-                        f"[SteamSale] ITAD fetch error: {e}"
-                    )
+            except Exception as e:
+                logger.error(
+                    f"[SteamSale] ITAD fetch error: {e}"
+                )
 
-            for appid_str in ids:
-                try:
-                    await self._process_game(
-                        steam_data,
-                        appid_str,
-                        itad_lowest_map.get(appid_str),
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"[SteamSale] Error processing {appid_str}: {e}"
-                    )
+        for appid_str in ids:
+            try:
+                await self._process_game(
+                    steam_data,
+                    appid_str,
+                    itad_lowest_map.get(appid_str),
+                )
+            except Exception as e:
+                logger.error(
+                    f"[SteamSale] Error processing {appid_str}: {e}"
+                )
 
     async def _fetch_itad_lowest(
         self, client, ids, itad_key, country
@@ -345,33 +378,16 @@ class SteamSalePlugin(Star):
         if self._cached_data is not None and cache_age < interval:
             data = self._cached_data
         else:
-            region = self.config.get("region", "cn")
             try:
-                url = (
-                    self._steam_api_base()
-                    + "?appids="
-                    + ",".join(ids)
-                    + "&cc="
-                    + region
-                )
-                async with httpx.AsyncClient(
-                    timeout=self._get_timeout()
-                ) as c:
-                    logger.info(f"[SteamSale] Query URL: {url}")
-                    resp = await c.get(url)
-                    body_preview = resp.text[:200]
-                    logger.info(
-                        f"[SteamSale] Query response: {resp.status_code}"
-                        f" {body_preview}"
+                region = self.config.get("region", "cn")
+                data = await self._fetch_steam_data(ids, region)
+                if not data:
+                    yield event.plain_result(
+                        "⚠️ Steam API 请求失败，请稍后再试。"
                     )
-                    if resp.status_code != 200:
-                        yield event.plain_result(
-                            "⚠️ Steam API 请求失败，请稍后再试。"
-                        )
-                        return
-                    data = resp.json()
-                    self._cached_data = data
-                    self._cached_at = time.time()
+                    return
+                self._cached_data = data
+                self._cached_at = time.time()
             except httpx.TimeoutException:
                 yield event.plain_result(
                     "⚠️ Steam API 请求超时，请稍后再试。"
