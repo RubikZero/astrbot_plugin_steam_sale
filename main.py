@@ -232,9 +232,17 @@ class SteamSalePlugin(Star):
         )
 
     @filter.command("steam_sub")
-    @filter.command("订阅折扣")
     async def subscribe(self, event: AstrMessageEvent):
         """订阅本群的 Steam 折扣通知"""
+        async for r in self._do_subscribe(event):
+            yield r
+
+    @filter.command("订阅折扣")
+    async def subscribe_cn(self, event: AstrMessageEvent):
+        async for r in self._do_subscribe(event):
+            yield r
+
+    async def _do_subscribe(self, event):
         origin = event.unified_msg_origin
         subs = await self.get_kv_data(SUBS_KEY, [])
         if origin not in subs:
@@ -249,9 +257,17 @@ class SteamSalePlugin(Star):
             )
 
     @filter.command("steam_unsub")
-    @filter.command("取消订阅")
     async def unsubscribe(self, event: AstrMessageEvent):
         """取消订阅本群的 Steam 折扣通知"""
+        async for r in self._do_unsubscribe(event):
+            yield r
+
+    @filter.command("取消订阅")
+    async def unsubscribe_cn(self, event: AstrMessageEvent):
+        async for r in self._do_unsubscribe(event):
+            yield r
+
+    async def _do_unsubscribe(self, event):
         origin = event.unified_msg_origin
         subs = await self.get_kv_data(SUBS_KEY, [])
         if origin in subs:
@@ -264,9 +280,17 @@ class SteamSalePlugin(Star):
             )
 
     @filter.command("steam_sale")
-    @filter.command("折扣")
     async def query_sales(self, event: AstrMessageEvent):
         """查询当前关注的 Steam 游戏折扣状态"""
+        async for r in self._do_query_sales(event):
+            yield r
+
+    @filter.command("折扣")
+    async def query_sales_cn(self, event: AstrMessageEvent):
+        async for r in self._do_query_sales(event):
+            yield r
+
+    async def _do_query_sales(self, event):
         game_ids_str = self.config.get("steam_game_ids", "").strip()
         if not game_ids_str:
             yield event.plain_result(
