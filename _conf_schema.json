@@ -1,0 +1,33 @@
+{
+  "steam_game_ids": {
+    "description": "关注的 Steam 游戏 App ID (逗号分隔)",
+    "type": "string",
+    "hint": "例如: 730,570,440。可在 store.steampowered.com 或 steamdb.info 找到 App ID。",
+    "default": "730"
+  },
+  "itad_api_key": {
+    "description": "IsThereAnyDeal API Key",
+    "type": "string",
+    "hint": "选填。用于判断折扣是否为历史最低价。注册获取: https://isthereanydeal.com/apps/my/",
+    "default": ""
+  },
+  "itad_client_secret": {
+    "description": "IsThereAnyDeal Client Secret",
+    "type": "string",
+    "hint": "选填。注册 app 时生成的 OAuth client secret，预留备用。",
+    "default": "",
+    "invisible": true
+  },
+  "check_interval": {
+    "description": "轮询间隔（分钟）",
+    "type": "int",
+    "hint": "每隔多少分钟检查一次 Steam 折扣",
+    "default": 60
+  },
+  "region": {
+    "description": "Steam 区域代码",
+    "type": "string",
+    "hint": "例如 cn（中国）、us（美国）",
+    "default": "cn"
+  }
+}
