@@ -255,7 +255,17 @@ class SteamSalePlugin(Star):
         async for r in self._do_subscribe(event):
             yield r
 
+    def _is_admin(self, event: AstrMessageEvent) -> bool:
+        try:
+            role = event.get_role()
+            return role in ("owner", "admin")
+        except Exception:
+            return True
+
     async def _do_subscribe(self, event):
+        if not self._is_admin(event):
+            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。")
+            return
         origin = event.unified_msg_origin
         subs = await self.get_kv_data(SUBS_KEY, [])
         if origin not in subs:
@@ -281,6 +291,9 @@ class SteamSalePlugin(Star):
             yield r
 
     async def _do_unsubscribe(self, event):
+        if not self._is_admin(event):
+            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。")
+            return
         origin = event.unified_msg_origin
         subs = await self.get_kv_data(SUBS_KEY, [])
         if origin in subs:
