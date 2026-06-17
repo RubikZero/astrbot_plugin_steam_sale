@@ -27,6 +27,8 @@ class SteamSalePlugin(Star):
         self.config = config
         self.running = False
         self.task = None
+        self._cached_data = None
+        self._cached_at = 0
 
     def _get_timeout(self):
         return max(10, self.config.get("request_timeout", 120))
@@ -65,6 +67,8 @@ class SteamSalePlugin(Star):
                 )
                 return
             steam_data = resp.json()
+            self._cached_data = steam_data
+            self._cached_at = time.time()
 
             itad_lowest_map = {}
             if itad_key:
@@ -302,30 +306,39 @@ class SteamSalePlugin(Star):
             return
 
         ids = [x.strip() for x in game_ids_str.split(",") if x.strip()]
-        region = self.config.get("region", "cn")
 
-        try:
-            async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
-                resp = await c.get(
-                    STEAM_API,
-                    params={"appids": ",".join(ids), "cc": region},
-                )
-                if resp.status_code != 200:
-                    yield event.plain_result(
-                        "⚠️ Steam API 请求失败，请稍后再试。"
+        cache_age = time.time() - self._cached_at
+        interval = max(1, self.config.get("check_interval", 60)) * 60
+        if self._cached_data is not None and cache_age < interval:
+            data = self._cached_data
+        else:
+            region = self.config.get("region", "cn")
+            try:
+                async with httpx.AsyncClient(
+                    timeout=self._get_timeout()
+                ) as c:
+                    resp = await c.get(
+                        STEAM_API,
+                        params={"appids": ",".join(ids), "cc": region},
                     )
-                    return
-                data = resp.json()
-        except httpx.TimeoutException:
-            yield event.plain_result(
-                "⚠️ Steam API 请求超时，请稍后再试。"
-            )
-            return
-        except httpx.HTTPError as e:
-            yield event.plain_result(
-                f"⚠️ 网络请求失败: {e}"
-            )
-            return
+                    if resp.status_code != 200:
+                        yield event.plain_result(
+                            "⚠️ Steam API 请求失败，请稍后再试。"
+                        )
+                        return
+                    data = resp.json()
+                    self._cached_data = data
+                    self._cached_at = time.time()
+            except httpx.TimeoutException:
+                yield event.plain_result(
+                    "⚠️ Steam API 请求超时，请稍后再试。"
+                )
+                return
+            except httpx.HTTPError as e:
+                yield event.plain_result(
+                    f"⚠️ 网络请求失败: {e}"
+                )
+                return
 
         lines = ["📋 当前 Steam 游戏折扣状态：\n"]
         found_sale = False
