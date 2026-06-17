@@ -28,6 +28,9 @@ class SteamSalePlugin(Star):
         self.running = False
         self.task = None
 
+    def _get_timeout(self):
+        return max(10, self.config.get("request_timeout", 120))
+
     async def initialize(self):
         self.running = True
         self.task = asyncio.create_task(self._poll_loop())
@@ -52,7 +55,7 @@ class SteamSalePlugin(Star):
         region = self.config.get("region", "cn")
         itad_key = self.config.get("itad_api_key", "").strip()
 
-        async with httpx.AsyncClient(timeout=30) as c:
+        async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
             resp = await c.get(
                 STEAM_API, params={"appids": ",".join(ids), "cc": region}
             )
@@ -302,7 +305,7 @@ class SteamSalePlugin(Star):
         region = self.config.get("region", "cn")
 
         try:
-            async with httpx.AsyncClient(timeout=30) as c:
+            async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
                 resp = await c.get(
                     STEAM_API,
                     params={"appids": ",".join(ids), "cc": region},
@@ -323,37 +326,38 @@ class SteamSalePlugin(Star):
                 f"⚠️ 网络请求失败: {e}"
             )
             return
-            lines = ["📋 当前 Steam 游戏折扣状态：\n"]
-            found_sale = False
 
-            for appid_str in ids:
-                app_entry = data.get(appid_str)
-                if not app_entry or not app_entry.get("success"):
-                    lines.append(f"❌ App {appid_str} 获取失败")
-                    continue
+        lines = ["📋 当前 Steam 游戏折扣状态：\n"]
+        found_sale = False
 
-                game = app_entry.get("data", {})
-                name = game.get("name", f"App {appid_str}")
-                price = game.get("price_overview")
+        for appid_str in ids:
+            app_entry = data.get(appid_str)
+            if not app_entry or not app_entry.get("success"):
+                lines.append(f"❌ App {appid_str} 获取失败")
+                continue
 
-                if price and price.get("discount_percent", 0) > 0:
-                    found_sale = True
-                    d = price["discount_percent"]
-                    f = price.get(
-                        "final_formatted", f"¥{price['final'] / 100:.2f}"
-                    )
-                    i = price.get(
-                        "initial_formatted",
-                        f"¥{price['initial'] / 100:.2f}",
-                    )
-                    lines.append(f"🎮 {name}  -{d}%\n   {i} → {f}")
-                else:
-                    lines.append(f"❌ {name}  无折扣")
+            game = app_entry.get("data", {})
+            name = game.get("name", f"App {appid_str}")
+            price = game.get("price_overview")
 
-            if not found_sale:
-                yield event.plain_result("📋 当前关注的游戏均无折扣。")
+            if price and price.get("discount_percent", 0) > 0:
+                found_sale = True
+                d = price["discount_percent"]
+                f = price.get(
+                    "final_formatted", f"¥{price['final'] / 100:.2f}"
+                )
+                i = price.get(
+                    "initial_formatted",
+                    f"¥{price['initial'] / 100:.2f}",
+                )
+                lines.append(f"🎮 {name}  -{d}%\n   {i} → {f}")
             else:
-                yield event.plain_result("\n".join(lines))
+                lines.append(f"❌ {name}  无折扣")
+
+        if not found_sale:
+            yield event.plain_result("📋 当前关注的游戏均无折扣。")
+        else:
+            yield event.plain_result("\n".join(lines))
 
     async def terminate(self):
         self.running = False

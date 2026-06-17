@@ -18,6 +18,12 @@
     "default": "",
     "invisible": true
   },
+  "request_timeout": {
+    "description": "HTTP 请求超时时间（秒）",
+    "type": "int",
+    "hint": "Steam API 响应较慢时可适当调大，默认 120",
+    "default": 120
+  },
   "check_interval": {
     "description": "轮询间隔（分钟）",
     "type": "int",
