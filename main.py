@@ -93,7 +93,7 @@ class SteamSalePlugin(Star):
         new_lookups = []
 
         for appid_str in ids:
-            cached = await self.get_kv_data(f"itad_id_{appid_str}")
+            cached = await self.get_kv_data(f"itad_id_{appid_str}", None)
             if cached:
                 uuid_to_appid[cached] = appid_str
             else:
@@ -175,7 +175,7 @@ class SteamSalePlugin(Star):
         )
 
         key = f"notified_{appid_str}"
-        existing = await self.get_kv_data(key)
+        existing = await self.get_kv_data(key, None)
         if existing:
             if (
                 existing.get("discount") == discount
@@ -205,7 +205,7 @@ class SteamSalePlugin(Star):
                 msg += f"📊 历史最低价：¥{lowest_price}\n"
         msg += f"🔗 https://store.steampowered.com/app/{appid_str}"
 
-        subs = await self.get_kv_data(SUBS_KEY)
+        subs = await self.get_kv_data(SUBS_KEY, [])
         if subs:
             chain = MessageChain().message(msg)
             valid_subs = []
@@ -236,7 +236,7 @@ class SteamSalePlugin(Star):
     async def subscribe(self, event: AstrMessageEvent):
         """订阅本群的 Steam 折扣通知"""
         origin = event.unified_msg_origin
-        subs = await self.get_kv_data(SUBS_KEY) or []
+        subs = await self.get_kv_data(SUBS_KEY, [])
         if origin not in subs:
             subs.append(origin)
             await self.put_kv_data(SUBS_KEY, subs)
@@ -253,7 +253,7 @@ class SteamSalePlugin(Star):
     async def unsubscribe(self, event: AstrMessageEvent):
         """取消订阅本群的 Steam 折扣通知"""
         origin = event.unified_msg_origin
-        subs = await self.get_kv_data(SUBS_KEY) or []
+        subs = await self.get_kv_data(SUBS_KEY, [])
         if origin in subs:
             subs.remove(origin)
             await self.put_kv_data(SUBS_KEY, subs)
