@@ -32,7 +32,10 @@ class SteamSalePlugin(Star):
     def _steam_api_base(self):
         proxy = self.config.get("proxy_url", "").strip()
         if proxy:
-            return proxy.rstrip("/") + "/api/appdetails"
+            url = proxy.rstrip("/") + "/api/appdetails"
+            logger.info(f"[SteamSale] Using proxy: {proxy}/api/appdetails")
+            return url
+        logger.info("[SteamSale] Using direct Steam API")
         return "https://store.steampowered.com/api/appdetails"
 
     def _get_timeout(self):
@@ -62,14 +65,24 @@ class SteamSalePlugin(Star):
         region = self.config.get("region", "cn")
         itad_key = self.config.get("itad_api_key", "").strip()
 
+        url = self._steam_api_base()
+        logger.info(
+            f"[SteamSale] Fetching: {url}?appids={','.join(ids)}&cc={region}"
+        )
         async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
             resp = await c.get(
-                self._steam_api_base(),
+                url,
                 params={"appids": ",".join(ids), "cc": region},
+            )
+            body_preview = resp.text[:200] if resp.text else ""
+            logger.info(
+                f"[SteamSale] Response: {resp.status_code}"
+                f" body_preview={body_preview}"
             )
             if resp.status_code != 200:
                 logger.warning(
-                    f"[SteamSale] Steam API returned {resp.status_code}"
+                    f"[SteamSale] Steam API returned {resp.status_code}:"
+                    f" {body_preview}"
                 )
                 return
             steam_data = resp.json()
@@ -333,12 +346,22 @@ class SteamSalePlugin(Star):
         else:
             region = self.config.get("region", "cn")
             try:
+                url = self._steam_api_base()
                 async with httpx.AsyncClient(
                     timeout=self._get_timeout()
                 ) as c:
+                    logger.info(
+                        f"[SteamSale] Query URL: {url}"
+                        f"?appids={','.join(ids)}&cc={region}"
+                    )
                     resp = await c.get(
-                        self._steam_api_base(),
+                        url,
                         params={"appids": ",".join(ids), "cc": region},
+                    )
+                    body_preview = resp.text[:200]
+                    logger.info(
+                        f"[SteamSale] Query response: {resp.status_code}"
+                        f" {body_preview}"
                     )
                     if resp.status_code != 200:
                         yield event.plain_result(
