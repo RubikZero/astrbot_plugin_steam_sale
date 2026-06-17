@@ -341,7 +341,6 @@ class SteamSalePlugin(Star):
                 return
 
         lines = ["📋 当前 Steam 游戏折扣状态：\n"]
-        found_sale = False
 
         for appid_str in ids:
             app_entry = data.get(appid_str)
@@ -354,7 +353,6 @@ class SteamSalePlugin(Star):
             price = game.get("price_overview")
 
             if price and price.get("discount_percent", 0) > 0:
-                found_sale = True
                 d = price["discount_percent"]
                 f = price.get(
                     "final_formatted", f"¥{price['final'] / 100:.2f}"
@@ -364,13 +362,15 @@ class SteamSalePlugin(Star):
                     f"¥{price['initial'] / 100:.2f}",
                 )
                 lines.append(f"🎮 {name}  -{d}%\n   {i} → {f}")
+            elif price:
+                cur = price.get(
+                    "final_formatted", f"¥{price['final'] / 100:.2f}"
+                )
+                lines.append(f"🎮 {name}\n   现价 {cur}")
             else:
-                lines.append(f"❌ {name}  无折扣")
+                lines.append(f"🎮 {name}\n   暂无价格信息")
 
-        if not found_sale:
-            yield event.plain_result("📋 当前关注的游戏均无折扣。")
-        else:
-            yield event.plain_result("\n".join(lines))
+        yield event.plain_result("\n".join(lines))
 
     async def terminate(self):
         self.running = False
