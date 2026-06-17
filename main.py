@@ -52,7 +52,7 @@ class SteamSalePlugin(Star):
         region = self.config.get("region", "cn")
         itad_key = self.config.get("itad_api_key", "").strip()
 
-        async with httpx.AsyncClient(timeout=15) as c:
+        async with httpx.AsyncClient(timeout=30) as c:
             resp = await c.get(
                 STEAM_API, params={"appids": ",".join(ids), "cc": region}
             )
@@ -301,17 +301,28 @@ class SteamSalePlugin(Star):
         ids = [x.strip() for x in game_ids_str.split(",") if x.strip()]
         region = self.config.get("region", "cn")
 
-        async with httpx.AsyncClient(timeout=15) as c:
-            resp = await c.get(
-                STEAM_API, params={"appids": ",".join(ids), "cc": region}
-            )
-            if resp.status_code != 200:
-                yield event.plain_result(
-                    "⚠️ Steam API 请求失败，请稍后再试。"
+        try:
+            async with httpx.AsyncClient(timeout=30) as c:
+                resp = await c.get(
+                    STEAM_API,
+                    params={"appids": ",".join(ids), "cc": region},
                 )
-                return
-
-            data = resp.json()
+                if resp.status_code != 200:
+                    yield event.plain_result(
+                        "⚠️ Steam API 请求失败，请稍后再试。"
+                    )
+                    return
+                data = resp.json()
+        except httpx.TimeoutException:
+            yield event.plain_result(
+                "⚠️ Steam API 请求超时，请稍后再试。"
+            )
+            return
+        except httpx.HTTPError as e:
+            yield event.plain_result(
+                f"⚠️ 网络请求失败: {e}"
+            )
+            return
             lines = ["📋 当前 Steam 游戏折扣状态：\n"]
             found_sale = False
 
