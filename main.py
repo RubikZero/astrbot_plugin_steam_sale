@@ -9,7 +9,6 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.event import MessageChain
 from astrbot.api.star import Context, Star, register
 
-STEAM_API = "https://store.steampowered.com/api/appdetails"
 ITAD_LOOKUP = "https://api.isthereanydeal.com/games/lookup/v1"
 ITAD_PRICES = "https://api.isthereanydeal.com/games/prices/v3"
 SUBS_KEY = "subscriptions"
@@ -29,6 +28,12 @@ class SteamSalePlugin(Star):
         self.task = None
         self._cached_data = None
         self._cached_at = 0
+
+    def _steam_api_base(self):
+        proxy = self.config.get("proxy_url", "").strip()
+        if proxy:
+            return proxy.rstrip("/") + "/api/appdetails"
+        return "https://store.steampowered.com/api/appdetails"
 
     def _get_timeout(self):
         return max(10, self.config.get("request_timeout", 120))
@@ -59,7 +64,8 @@ class SteamSalePlugin(Star):
 
         async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
             resp = await c.get(
-                STEAM_API, params={"appids": ",".join(ids), "cc": region}
+                self._steam_api_base(),
+                params={"appids": ",".join(ids), "cc": region},
             )
             if resp.status_code != 200:
                 logger.warning(
@@ -318,7 +324,7 @@ class SteamSalePlugin(Star):
                     timeout=self._get_timeout()
                 ) as c:
                     resp = await c.get(
-                        STEAM_API,
+                        self._steam_api_base(),
                         params={"appids": ",".join(ids), "cc": region},
                     )
                     if resp.status_code != 200:

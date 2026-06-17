@@ -18,6 +18,12 @@
     "default": "",
     "invisible": true
   },
+  "proxy_url": {
+    "description": "Steam API 代理地址",
+    "type": "string",
+    "hint": "选填。通过 Cloudflare Worker 等代理访问 Steam API。填入 Worker URL 即可，末尾不要加 /",
+    "default": ""
+  },
   "request_timeout": {
     "description": "HTTP 请求超时时间（秒）",
     "type": "int",
