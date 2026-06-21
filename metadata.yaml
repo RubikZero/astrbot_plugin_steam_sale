@@ -3,5 +3,5 @@ display_name: Steam 折扣监控
 desc: 监控 Steam 游戏折扣，定时推送通知到群组，支持历史最低价判断
 short_desc: 监控关注的 Steam 游戏，折扣时自动通知
 version: v1.0.0
-author: your_name
+author: RubikZero
 repo: https://github.com/your_name/astrbot_plugin_steam_sale
