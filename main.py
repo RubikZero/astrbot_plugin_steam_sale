@@ -267,7 +267,7 @@ class SteamSalePlugin(Star):
 
         subs = await self.get_kv_data(SUBS_KEY, [])
         if subs:
-            chain = MessageChain().message(msg)
+            chain = MessageChain().message(msg).use_markdown(False)
             valid_subs = []
             for sub in subs:
                 try:
@@ -311,7 +311,7 @@ class SteamSalePlugin(Star):
 
     async def _do_subscribe(self, event):
         if not self._is_admin(event):
-            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。")
+            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。").use_markdown(False)
             return
         origin = event.unified_msg_origin
         subs = await self.get_kv_data(SUBS_KEY, [])
@@ -320,11 +320,11 @@ class SteamSalePlugin(Star):
             await self.put_kv_data(SUBS_KEY, subs)
             yield event.plain_result(
                 "✅ 已订阅 Steam 折扣通知，将在关注游戏打折时收到推送。"
-            )
+            ).use_markdown(False)
         else:
             yield event.plain_result(
                 "ℹ️ 本群/频道已订阅过 Steam 折扣通知。"
-            )
+            ).use_markdown(False)
 
     @filter.command("steam_unsub")
     async def unsubscribe(self, event: AstrMessageEvent):
@@ -339,18 +339,18 @@ class SteamSalePlugin(Star):
 
     async def _do_unsubscribe(self, event):
         if not self._is_admin(event):
-            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。")
+            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。").use_markdown(False)
             return
         origin = event.unified_msg_origin
         subs = await self.get_kv_data(SUBS_KEY, [])
         if origin in subs:
             subs.remove(origin)
             await self.put_kv_data(SUBS_KEY, subs)
-            yield event.plain_result("✅ 已取消订阅 Steam 折扣通知。")
+            yield event.plain_result("✅ 已取消订阅 Steam 折扣通知。").use_markdown(False)
         else:
             yield event.plain_result(
                 "ℹ️ 本群/频道未订阅 Steam 折扣通知。"
-            )
+            ).use_markdown(False)
 
     @filter.command("steam_sale")
     async def query_sales(self, event: AstrMessageEvent):
@@ -368,7 +368,7 @@ class SteamSalePlugin(Star):
         if not game_ids_str:
             yield event.plain_result(
                 "⚠️ 未配置 Steam 游戏 ID。请在插件设置中添加。"
-            )
+            ).use_markdown(False)
             return
 
         ids = [x.strip() for x in game_ids_str.split(",") if x.strip()]
@@ -384,19 +384,19 @@ class SteamSalePlugin(Star):
                 if not data:
                     yield event.plain_result(
                         "⚠️ Steam API 请求失败，请稍后再试。"
-                    )
+                    ).use_markdown(False)
                     return
                 self._cached_data = data
                 self._cached_at = time.time()
             except httpx.TimeoutException:
                 yield event.plain_result(
                     "⚠️ Steam API 请求超时，请稍后再试。"
-                )
+                ).use_markdown(False)
                 return
             except httpx.HTTPError as e:
                 yield event.plain_result(
                     f"⚠️ 网络请求失败: {e}"
-                )
+                ).use_markdown(False)
                 return
 
         lines = ["📋 当前 Steam 游戏折扣状态：\n"]
@@ -429,7 +429,7 @@ class SteamSalePlugin(Star):
             else:
                 lines.append(f"🎮 {name}\n   暂无价格信息")
 
-        yield event.plain_result("\n".join(lines))
+        yield event.plain_result("\n".join(lines)).use_markdown(False)
 
     async def terminate(self):
         self.running = False
