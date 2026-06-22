@@ -8,7 +8,6 @@ from astrbot.api import logger
 from astrbot.api import AstrBotConfig
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.event import MessageChain
-from astrbot.api.platform import MessageType
 from astrbot.api.star import Context, Star, register
 
 ITAD_LOOKUP = "https://api.isthereanydeal.com/games/lookup/v1"
@@ -354,7 +353,7 @@ class SteamSalePlugin(Star):
     @filter.command("steam_sale", alias={"折扣"})
     async def query_sales(self, event: AstrMessageEvent):
         """查询当前关注的 Steam 游戏折扣状态"""
-        if event.get_message_type() == MessageType.FRIEND_MESSAGE:
+        if "friend_message" in event.unified_msg_origin:
             yield event.plain_result("⚠️ 该指令仅在群聊中可用。").use_markdown(False)
             return
         origin = event.unified_msg_origin
@@ -426,7 +425,7 @@ class SteamSalePlugin(Star):
     @filter.command("steam_add", alias={"添加游戏"})
     async def add_game(self, event: AstrMessageEvent):
         """向本群游戏列表添加游戏，例：/添加游戏 730"""
-        if event.get_message_type() == MessageType.FRIEND_MESSAGE:
+        if "friend_message" in event.unified_msg_origin:
             yield event.plain_result("⚠️ 该指令仅在群聊中可用。").use_markdown(False)
             return
         parts = event.message_str.strip().split()
@@ -446,7 +445,7 @@ class SteamSalePlugin(Star):
     @filter.command("steam_remove", alias={"移除游戏"})
     async def remove_game(self, event: AstrMessageEvent):
         """从本群游戏列表移除游戏，例：/移除游戏 730"""
-        if event.get_message_type() == MessageType.FRIEND_MESSAGE:
+        if "friend_message" in event.unified_msg_origin:
             yield event.plain_result("⚠️ 该指令仅在群聊中可用。").use_markdown(False)
             return
         parts = event.message_str.strip().split()
