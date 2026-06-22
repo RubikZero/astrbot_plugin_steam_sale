@@ -11,8 +11,8 @@ from astrbot.api.star import Context, Star, register
 
 ITAD_LOOKUP = "https://api.isthereanydeal.com/games/lookup/v1"
 ITAD_PRICES = "https://api.isthereanydeal.com/games/prices/v3"
-SUBS_KEY = "subscriptions"
 GROUP_GAMES_PREFIX = "group_games_"
+GROUP_GAMES_INDEX = "group_games_index"
 
 
 @register(
@@ -49,7 +49,41 @@ class SteamSalePlugin(Star):
         return [x.strip() for x in raw.split(",") if x.strip()]
 
     async def _set_group_games(self, origin, ids):
-        await self.put_kv_data(self._group_games_key(origin), ",".join(ids))
+        key = self._group_games_key(origin)
+        if ids:
+            await self.put_kv_data(key, ",".join(ids))
+        else:
+            await self.delete_kv_data(key)
+        await self._update_group_index(origin, bool(ids))
+
+    async def _update_group_index(self, origin, active):
+        index = await self.get_kv_data(GROUP_GAMES_INDEX, [])
+        changed = False
+        if active and origin not in index:
+            index.append(origin)
+            changed = True
+        elif not active and origin in index:
+            index.remove(origin)
+            changed = True
+        if changed:
+            await self.put_kv_data(GROUP_GAMES_INDEX, index)
+
+    async def _collect_all_games(self):
+        index = await self.get_kv_data(GROUP_GAMES_INDEX, [])
+        all_ids = set()
+        for origin in index:
+            games = await self._get_group_games(origin)
+            all_ids.update(games)
+        return list(all_ids)
+
+    async def _find_origins_for_appid(self, appid):
+        index = await self.get_kv_data(GROUP_GAMES_INDEX, [])
+        origins = []
+        for origin in index:
+            games = await self._get_group_games(origin)
+            if appid in games:
+                origins.append(origin)
+        return origins
 
     async def _search_steam(self, term):
         url = self._steam_api_url("/search/suggest") + f"?term={term}&f=games&cc=CN&l=zh&v=4"
@@ -136,10 +170,7 @@ class SteamSalePlugin(Star):
             await asyncio.sleep(interval * 60)
 
     async def _check_discounts(self):
-        game_ids_str = self.config.get("steam_game_ids", "").strip()
-        if not game_ids_str:
-            return
-        ids = [x.strip() for x in game_ids_str.split(",") if x.strip()]
+        ids = await self._collect_all_games()
         if not ids:
             return
 
@@ -299,19 +330,16 @@ class SteamSalePlugin(Star):
                 msg += f"📊 历史最低价：¥{lowest_price}\n"
         msg += f"🔗 https://store.steampowered.com/app/{appid_str}"
 
-        subs = await self.get_kv_data(SUBS_KEY, [])
-        if subs:
+        targets = await self._find_origins_for_appid(appid_str)
+        if targets:
             chain = MessageChain().message(msg).use_markdown(False)
-            valid_subs = []
-            for sub in subs:
+            for target in targets:
                 try:
-                    await self.context.send_message(sub, chain)
-                    valid_subs.append(sub)
+                    await self.context.send_message(target, chain)
                 except Exception as e:
                     logger.error(
-                        f"[SteamSale] Failed to send to {sub}: {e}"
+                        f"[SteamSale] Failed to send to {target}: {e}"
                     )
-            await self.put_kv_data(SUBS_KEY, valid_subs)
 
         await self.put_kv_data(
             key,
@@ -332,57 +360,16 @@ class SteamSalePlugin(Star):
         except Exception:
             return True
 
-    @filter.command("steam_sub", alias={"订阅折扣"})
-    async def subscribe(self, event: AstrMessageEvent):
-        """订阅本群的 Steam 折扣通知"""
-        if not self._is_admin(event):
-            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。").use_markdown(False)
-            return
-        origin = event.unified_msg_origin
-        subs = await self.get_kv_data(SUBS_KEY, [])
-        if origin not in subs:
-            subs.append(origin)
-            await self.put_kv_data(SUBS_KEY, subs)
-            yield event.plain_result(
-                "✅ 已订阅 Steam 折扣通知。"
-            ).use_markdown(False)
-        else:
-            yield event.plain_result(
-                "ℹ️ 本群/频道已订阅过 Steam 折扣通知。"
-            ).use_markdown(False)
-
-    @filter.command("steam_unsub", alias={"取消订阅"})
-    async def unsubscribe(self, event: AstrMessageEvent):
-        """取消订阅本群的 Steam 折扣通知"""
-        if not self._is_admin(event):
-            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。").use_markdown(False)
-            return
-        origin = event.unified_msg_origin
-        subs = await self.get_kv_data(SUBS_KEY, [])
-        if origin in subs:
-            subs.remove(origin)
-            await self.put_kv_data(SUBS_KEY, subs)
-            yield event.plain_result("✅ 已取消订阅 Steam 折扣通知。").use_markdown(False)
-        else:
-            yield event.plain_result(
-                "ℹ️ 本群/频道未订阅 Steam 折扣通知。"
-            ).use_markdown(False)
-
     @filter.command("steam_sale", alias={"折扣"})
     async def query_sales(self, event: AstrMessageEvent):
         """查询当前关注的 Steam 游戏折扣状态"""
         origin = event.unified_msg_origin
-        group_ids = await self._get_group_games(origin)
-        if group_ids:
-            ids = group_ids
-        else:
-            raw = self.config.get("steam_game_ids", "").strip()
-            if not raw:
-                yield event.plain_result(
-                    "⚠️ 本群未设置游戏，且全局配置为空。请使用 /添加游戏 添加。"
-                ).use_markdown(False)
-                return
-            ids = [x.strip() for x in raw.split(",") if x.strip()]
+        ids = await self._get_group_games(origin)
+        if not ids:
+            yield event.plain_result(
+                "⚠️ 本群未设置游戏。请使用 /搜索游戏 查找后，用 /添加游戏 添加。"
+            ).use_markdown(False)
+            return
 
         cache_age = time.time() - self._cached_at
         interval = max(1, self.config.get("check_interval", 60)) * 60
@@ -488,12 +475,7 @@ class SteamSalePlugin(Star):
         origin = event.unified_msg_origin
         games = await self._get_group_games(origin)
         if not games:
-            raw = self.config.get("steam_game_ids", "").strip()
-            if raw:
-                games = [x.strip() for x in raw.split(",") if x.strip()]
-                msg = "📋 本群使用全局配置的游戏列表：\n" + "\n".join(f"  App {g}" for g in games)
-            else:
-                msg = "📋 本群未设置任何游戏。"
+            msg = "📋 本群未设置任何游戏。使用 /添加游戏 添加。"
         else:
             msg = "📋 本群关注的游戏：\n" + "\n".join(f"  App {g}" for g in games)
         yield event.plain_result(msg).use_markdown(False)
