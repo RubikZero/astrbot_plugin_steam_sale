@@ -350,12 +350,10 @@ class SteamSalePlugin(Star):
             },
         )
 
+    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     @filter.command("steam_sale", alias={"折扣"})
     async def query_sales(self, event: AstrMessageEvent):
         """查询当前关注的 Steam 游戏折扣状态"""
-        if "friend_message" in event.unified_msg_origin:
-            yield event.plain_result("⚠️ 该指令仅在群聊中可用。").use_markdown(False)
-            return
         origin = event.unified_msg_origin
         ids = await self._get_group_games(origin)
         if not ids:
@@ -422,12 +420,10 @@ class SteamSalePlugin(Star):
 
         yield event.plain_result("\n".join(lines)).use_markdown(False)
 
+    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     @filter.command("steam_add", alias={"添加游戏"})
     async def add_game(self, event: AstrMessageEvent):
         """向本群游戏列表添加游戏，例：/添加游戏 730"""
-        if "friend_message" in event.unified_msg_origin:
-            yield event.plain_result("⚠️ 该指令仅在群聊中可用。").use_markdown(False)
-            return
         parts = event.message_str.strip().split()
         if len(parts) < 2 or not parts[-1].isdigit():
             yield event.plain_result("⚠️ 用法：/添加游戏 <App ID>，如 /添加游戏 730").use_markdown(False)
@@ -442,12 +438,10 @@ class SteamSalePlugin(Star):
         await self._set_group_games(origin, games)
         yield event.plain_result(f"已添加 App {appid} 到本群游戏列表。").use_markdown(False)
 
+    @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     @filter.command("steam_remove", alias={"移除游戏"})
     async def remove_game(self, event: AstrMessageEvent):
         """从本群游戏列表移除游戏，例：/移除游戏 730"""
-        if "friend_message" in event.unified_msg_origin:
-            yield event.plain_result("⚠️ 该指令仅在群聊中可用。").use_markdown(False)
-            return
         parts = event.message_str.strip().split()
         if len(parts) < 2 or not parts[-1].isdigit():
             yield event.plain_result("⚠️ 用法：/移除游戏 <App ID>，如 /移除游戏 730").use_markdown(False)
