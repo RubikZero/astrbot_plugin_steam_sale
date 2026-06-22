@@ -5,7 +5,7 @@ import httpx
 
 from astrbot.api import logger
 from astrbot.api import AstrBotConfig
-from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.event import filter, AstrMessageEvent, PermissionType
 from astrbot.api.event import MessageChain
 from astrbot.api.star import Context, Star, register
 
@@ -353,13 +353,6 @@ class SteamSalePlugin(Star):
             },
         )
 
-    def _is_admin(self, event: AstrMessageEvent) -> bool:
-        try:
-            role = event.get_role()
-            return role in ("owner", "admin")
-        except Exception:
-            return True
-
     @filter.command("steam_sale", alias={"折扣"})
     async def query_sales(self, event: AstrMessageEvent):
         """查询当前关注的 Steam 游戏折扣状态"""
@@ -429,12 +422,10 @@ class SteamSalePlugin(Star):
 
         yield event.plain_result("\n".join(lines)).use_markdown(False)
 
+    @filter.permission_type(PermissionType.ADMIN)
     @filter.command("steam_add", alias={"添加游戏"})
     async def add_game(self, event: AstrMessageEvent):
         """向本群游戏列表添加游戏，例：/添加游戏 730"""
-        if not self._is_admin(event):
-            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。").use_markdown(False)
-            return
         parts = event.message_str.strip().split()
         if len(parts) < 2 or not parts[-1].isdigit():
             yield event.plain_result("⚠️ 用法：/添加游戏 <App ID>，如 /添加游戏 730").use_markdown(False)
@@ -449,12 +440,10 @@ class SteamSalePlugin(Star):
         await self._set_group_games(origin, games)
         yield event.plain_result(f"✅ 已添加 App {appid} 到本群游戏列表。").use_markdown(False)
 
+    @filter.permission_type(PermissionType.ADMIN)
     @filter.command("steam_remove", alias={"移除游戏"})
     async def remove_game(self, event: AstrMessageEvent):
         """从本群游戏列表移除游戏，例：/移除游戏 730"""
-        if not self._is_admin(event):
-            yield event.plain_result("⚠️ 仅群主/管理员可以执行此操作。").use_markdown(False)
-            return
         parts = event.message_str.strip().split()
         if len(parts) < 2 or not parts[-1].isdigit():
             yield event.plain_result("⚠️ 用法：/移除游戏 <App ID>，如 /移除游戏 730").use_markdown(False)
