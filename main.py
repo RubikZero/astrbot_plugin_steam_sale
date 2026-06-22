@@ -87,20 +87,24 @@ class SteamSalePlugin(Star):
         return origins
 
     async def _search_steam(self, term):
-        url = self._steam_api_url("/search/suggest") + f"?term={term}&f=games&cc=CN&l=zh&v=4"
+        url = self._steam_api_url("/api/storesearch") + f"?term={term}&cc=CN&l=zh"
         try:
             async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
                 resp = await c.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    items = data.get("suggestions", {})
-                    appids = items.get("appid", [])
-                    names = items.get("name", [])
-                    prices = items.get("price", [])
-                    return [
-                        {"appid": a, "name": n, "price": p}
-                        for a, n, p in zip(appids, names, prices)
-                    ]
+                    results = []
+                    for item in data.get("items", []):
+                        name = item.get("name", "?")
+                        appid = item.get("id")
+                        price = item.get("price")
+                        if price:
+                            final = price.get("final_formatted",
+                                             f"¥{price['final']/100:.2f}")
+                        else:
+                            final = "免费"
+                        results.append({"appid": appid, "name": name, "price": final})
+                    return results
         except Exception as e:
             logger.warning(f"[SteamSale] Search error: {e}")
         return []
@@ -484,8 +488,8 @@ class SteamSalePlugin(Star):
             return
         lines = [f"🔍 搜索「{term}」的结果：\n"]
         for r in results[:10]:
-            lines.append(f"  {r['name']}  (App {r['appid']})  {r['price']}")
-        lines.append("\n使用 /添加游戏 <App ID> 添加到本群列表。")
+            lines.append(f"  {r['name']}  ({r['appid']})  {r['price']}")
+        lines.append("\n使用 /添加游戏 <App ID> 添加到本群。")
         yield event.plain_result("\n".join(lines)).use_markdown(False)
 
     async def terminate(self):
