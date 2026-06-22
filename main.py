@@ -1,5 +1,6 @@
 import asyncio
 import time
+from urllib.parse import quote
 
 import httpx
 
@@ -87,7 +88,7 @@ class SteamSalePlugin(Star):
         return origins
 
     async def _search_steam(self, term):
-        url = self._steam_api_url("/api/storesearch") + f"?term={term}&cc=CN&l=zh"
+        url = self._steam_api_url("/api/storesearch") + f"?term={quote(term)}&cc=CN&l=zh"
         try:
             async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
                 resp = await c.get(url)
