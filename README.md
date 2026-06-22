@@ -4,11 +4,12 @@ AstrBot 插件 — 监控 Steam 游戏折扣，自动推送通知到群组。
 
 ## 功能
 
-- 配置关注的 Steam 游戏 App ID 列表
+- 每群独立管理游戏列表，通过指令自由添加/移除
 - 定时轮询 Steam Store API，检测折扣
-- 有折扣时推送到已订阅的群/频道，同一折扣不重复推送
+- 折扣时自动通知添加了该游戏的群，同一折扣不重复推送
+- 可配置代理（如 Cloudflare Worker）加速国内访问
 - 可选集成 IsThereAnyDeal API，识别历史最低价
-- 指令查询当前折扣状态
+- 支持搜索 Steam 游戏并一键添加到列表
 
 ## 配置
 
@@ -16,8 +17,9 @@ AstrBot 插件 — 监控 Steam 游戏折扣，自动推送通知到群组。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `steam_game_ids` | string | 关注的游戏 App ID，逗号分隔。如 `730,570,440` |
+| `proxy_url` | string | (选填) Steam API 代理地址，如 Cloudflare Worker URL |
 | `itad_api_key` | string | (选填) IsThereAnyDeal API Key，用于判断历史最低价 |
+| `request_timeout` | int | HTTP 请求超时时间（秒），默认 120 |
 | `check_interval` | int | 轮询间隔（分钟），默认 60 |
 | `region` | string | Steam 区域代码，默认 `cn` |
 
@@ -25,11 +27,22 @@ AstrBot 插件 — 监控 Steam 游戏折扣，自动推送通知到群组。
 
 ## 指令
 
-| 指令 | 别名 | 功能 |
-|---|---|---|
-| `/steam_sub` | `/订阅折扣` | 在当前群/频道订阅折扣通知 |
-| `/steam_unsub` | `/取消订阅` | 取消订阅 |
-| `/steam_sale` | `/折扣` | 查询关注游戏的当前折扣状态 |
+| 指令 | 别名 | 权限 | 功能 |
+|---|---|---|---|
+| `/steam_add <AppID>` | `/添加游戏` | ADMIN | 向本群游戏列表添加游戏 |
+| `/steam_remove <AppID>` | `/移除游戏` | ADMIN | 从本群游戏列表移除游戏 |
+| `/steam_list` | `/游戏列表` | 所有人 | 查看本群关注的游戏 |
+| `/steam_search <关键词>` | `/搜索游戏` | 所有人 | 搜索 Steam 游戏并显示 App ID |
+| `/steam_sale` | `/折扣` | 所有人 | 查询本群游戏的折扣状态 |
+
+> `ADMIN` 权限需要发送者在群内是群主或管理员。
+
+## 使用流程
+
+1. `/搜索游戏 荒野大镖客` — 搜索游戏，获得 App ID
+2. `/添加游戏 1174180` — 添加到本群列表
+3. 插件轮询到折扣后，自动通知本群
+4. `/折扣` — 随时查看当前折扣状态
 
 ## 安装
 
@@ -53,7 +66,7 @@ AstrBot 插件 — 监控 Steam 游戏折扣，自动推送通知到群组。
 | `SERVER_HOST` | 服务器 IP 或域名 |
 | `SERVER_USER` | SSH 用户名 |
 | `SERVER_SSH_KEY` | SSH 私钥内容 |
-| `PLUGIN_DIR` | (Variable) 插件目录完整路径，如 `/opt/astrbot/data/plugins/astrbot_plugin_steam_sale` |
+| `PLUGIN_DIR` | (Secret) 插件目录完整路径，如 `/home/user/astrbot/data/plugins/astrbot_plugin_steam_sale` |
 
 ## 开发
 
