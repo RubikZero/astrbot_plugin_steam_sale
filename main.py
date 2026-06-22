@@ -88,24 +88,16 @@ class SteamSalePlugin(Star):
         return origins
 
     async def _search_steam(self, term):
-        url = self._steam_api_url("/api/storesearch") + f"?term={quote(term)}&cc=CN&l=zh"
+        url = self._steam_api_url("/api/search") + f"?term={quote(term)}&cc=CN&l=schinese"
         try:
             async with httpx.AsyncClient(timeout=self._get_timeout()) as c:
                 resp = await c.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    results = []
-                    for item in data.get("items", []):
-                        name = item.get("name", "?")
-                        appid = item.get("id")
-                        price = item.get("price")
-                        if price:
-                            final = price.get("final_formatted",
-                                             f"¥{price['final']/100:.2f}")
-                        else:
-                            final = "免费"
-                        results.append({"appid": appid, "name": name, "price": final})
-                    return results
+                    return [
+                        {"appid": item.get("appid"), "name": item.get("name", "?"), "price": ""}
+                        for item in data if item.get("appid")
+                    ]
         except Exception as e:
             logger.warning(f"[SteamSale] Search error: {e}")
         return []
@@ -489,7 +481,7 @@ class SteamSalePlugin(Star):
             return
         lines = [f"🔍 搜索「{term}」的结果：\n"]
         for r in results[:10]:
-            lines.append(f"  {r['name']}  ({r['appid']})  {r['price']}")
+            lines.append(f"  {r['name']}  ({r['appid']})")
         lines.append("\n使用 /添加游戏 <App ID> 添加到本群。")
         yield event.plain_result("\n".join(lines)).use_markdown(False)
 
