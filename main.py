@@ -8,6 +8,7 @@ from astrbot.api import logger
 from astrbot.api import AstrBotConfig
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.event import MessageChain
+from astrbot.api.platform import MessageType
 from astrbot.api.star import Context, Star, register
 
 ITAD_LOOKUP = "https://api.isthereanydeal.com/games/lookup/v1"
@@ -156,6 +157,24 @@ class SteamSalePlugin(Star):
     async def initialize(self):
         self.running = True
         self.task = asyncio.create_task(self._poll_loop())
+        self._patch_qqofficial_adapter()
+
+    def _patch_qqofficial_adapter(self):
+        try:
+            from astrbot.core.platform.sources.qqofficial.qqofficial_platform_adapter import (
+                QQOfficialPlatformAdapter,
+            )
+            orig = QQOfficialPlatformAdapter._send_by_session_common
+
+            async def patched(self_obj, session, message_chain):
+                if session.message_type == MessageType.GROUP_MESSAGE:
+                    self_obj._session_scene[session.session_id] = "group"
+                await orig(self_obj, session, message_chain)
+
+            QQOfficialPlatformAdapter._send_by_session_common = patched
+            logger.info("[SteamSale] Patched QQ Official adapter for proactive group send")
+        except Exception as e:
+            logger.warning(f"[SteamSale] Could not patch QQ Official adapter: {e}")
 
     async def _poll_loop(self):
         while self.running:
